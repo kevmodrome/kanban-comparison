@@ -5,7 +5,7 @@ import { db } from '$lib/db';
 import { cards, cardTags, comments, lists } from '$lib/db/schema';
 import { eq, max } from 'drizzle-orm';
 import * as v from 'valibot';
-import { CardSchema, CardUpdateSchema, CommentSchema } from '$lib/validation';
+import { CardUpdateSchema, CommentSchema } from '$lib/validation';
 
 export const load: PageServerLoad = async ({ params, depends }) => {
 	depends('app:board');
@@ -17,96 +17,16 @@ export const load: PageServerLoad = async ({ params, depends }) => {
 		throw error(404, 'Board not found');
 	}
 
-	const [users, tags] = await Promise.all([
-		getUsers(),
-		getTags()
-	]);
+	const [users, tags] = await Promise.all([getUsers(), getTags()]);
 
 	return {
 		board,
 		users,
-		tags
+		tags,
 	};
 };
 
 export const actions = {
-	createCard: async ({ request }) => {
-		try {
-			const formData = await request.formData();
-			const boardId = formData.get('boardId') as string;
-			const title = formData.get('title') as string;
-			const description = formData.get('description') as string;
-			const assigneeId = formData.get('assigneeId') as string;
-			const tagIds = formData.getAll('tagIds') as string[];
-
-			if (!boardId) {
-				return fail(400, { error: 'Board ID is required' });
-			}
-
-			// Validate with Valibot
-			const result = v.safeParse(CardSchema, {
-				title,
-				description: description || undefined,
-				assigneeId: assigneeId || undefined,
-				tagIds
-			});
-
-			if (!result.success) {
-				const firstIssue = result.issues[0];
-				return fail(400, { error: firstIssue.message });
-			}
-
-			// Find the Todo list for this board
-			const todoLists = await db
-				.select()
-				.from(lists)
-				.where(eq(lists.boardId, boardId));
-
-			const todoList = todoLists.find((list) => list.title === 'Todo');
-
-			if (!todoList) {
-				return fail(400, { error: 'Todo list not found for this board' });
-			}
-
-			// Get the highest position in the Todo list
-			const maxPositionResult = await db
-				.select({ maxPos: max(cards.position) })
-				.from(cards)
-				.where(eq(cards.listId, todoList.id));
-
-			const nextPosition = (maxPositionResult[0]?.maxPos ?? -1) + 1;
-
-			// Create the card
-			const cardId = crypto.randomUUID();
-
-			db.transaction((tx) => {
-				tx.insert(cards).values({
-					id: cardId,
-					listId: todoList.id,
-					title: result.output.title,
-					description: result.output.description || null,
-					assigneeId: result.output.assigneeId || null,
-					position: nextPosition,
-					completed: false
-				}).run();
-
-				if (result.output.tagIds && result.output.tagIds.length > 0) {
-					tx.insert(cardTags).values(
-						result.output.tagIds.map((tagId) => ({
-							cardId,
-							tagId
-						}))
-					).run();
-				}
-			});
-
-			return { success: true, cardId };
-		} catch (err) {
-			console.error('Failed to create card:', err);
-			return fail(500, { error: 'Failed to create card. Please try again.' });
-		}
-	},
-
 	updateCard: async ({ request }) => {
 		try {
 			const formData = await request.formData();
@@ -122,7 +42,7 @@ export const actions = {
 				title,
 				description: description || undefined,
 				assigneeId: assigneeId || undefined,
-				tagIds
+				tagIds,
 			});
 
 			if (!result.success) {
@@ -131,25 +51,28 @@ export const actions = {
 			}
 
 			db.transaction((tx) => {
-				tx
-					.update(cards)
+				tx.update(cards)
 					.set({
 						title: result.output.title,
 						description: result.output.description || null,
-						assigneeId: result.output.assigneeId || null
+						assigneeId: result.output.assigneeId || null,
 					})
 					.where(eq(cards.id, result.output.cardId))
 					.run();
 
-				tx.delete(cardTags).where(eq(cardTags.cardId, result.output.cardId)).run();
+				tx.delete(cardTags)
+					.where(eq(cardTags.cardId, result.output.cardId))
+					.run();
 
 				if (result.output.tagIds && result.output.tagIds.length > 0) {
-					tx.insert(cardTags).values(
-						result.output.tagIds.map((tagId) => ({
-							cardId: result.output.cardId,
-							tagId
-						}))
-					).run();
+					tx.insert(cardTags)
+						.values(
+							result.output.tagIds.map((tagId) => ({
+								cardId: result.output.cardId,
+								tagId,
+							})),
+						)
+						.run();
 				}
 			});
 
@@ -171,7 +94,7 @@ export const actions = {
 			const result = v.safeParse(CommentSchema, {
 				cardId,
 				userId,
-				text
+				text,
 			});
 
 			if (!result.success) {
@@ -185,7 +108,7 @@ export const actions = {
 				id: commentId,
 				cardId: result.output.cardId,
 				userId: result.output.userId,
-				text: result.output.text
+				text: result.output.text,
 			});
 
 			return { success: true };
@@ -205,10 +128,7 @@ export const actions = {
 				return fail(400, { error: 'Card ID and new list ID are required' });
 			}
 
-			await db
-				.update(cards)
-				.set({ listId: newListId })
-				.where(eq(cards.id, cardId));
+			await db.update(cards).set({ listId: newListId }).where(eq(cards.id, cardId));
 
 			return { success: true };
 		} catch (err) {
@@ -228,8 +148,7 @@ export const actions = {
 
 			db.transaction((tx) => {
 				cardIds.forEach((cardId, index) => {
-					tx
-						.update(cards)
+					tx.update(cards)
 						.set({ position: index })
 						.where(eq(cards.id, cardId))
 						.run();
@@ -259,5 +178,5 @@ export const actions = {
 			console.error('Failed to delete card:', err);
 			return fail(500, { error: 'Failed to delete card. Please try again.' });
 		}
-	}
+	},
 } satisfies Actions;

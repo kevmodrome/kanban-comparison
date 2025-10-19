@@ -13,7 +13,6 @@
 
 	// Local mutable copy for optimistic updates
 	let board = $state<BoardDetails>(data.board);
-	let isAddCardModalOpen = $state(false);
 	let isUpdating = $state(false);
 
 	// Sync local state with server data
@@ -25,7 +24,7 @@
 	async function submitAction(action: string, formData: FormData): Promise<Response> {
 		const response = await fetch(`?/${action}`, {
 			method: 'POST',
-			body: formData
+			body: formData,
 		});
 
 		if (response.ok) {
@@ -54,7 +53,9 @@
 		// Update board state optimistically during drag
 		board = {
 			...board,
-			lists: board.lists.map((list) => (list.id === listId ? { ...list, cards: items } : list))
+			lists: board.lists.map((list) =>
+				list.id === listId ? { ...list, cards: items } : list,
+			),
 		};
 	}
 
@@ -69,7 +70,9 @@
 		// Update board state optimistically
 		board = {
 			...board,
-			lists: board.lists.map((list) => (list.id === listId ? { ...list, cards: items } : list))
+			lists: board.lists.map((list) =>
+				list.id === listId ? { ...list, cards: items } : list,
+			),
 		};
 
 		isUpdating = true;
@@ -79,7 +82,7 @@
 			const cardMovedToNewList = items.find((card) => {
 				// Find the original list for this card in data.board
 				const originalList = data.board.lists.find((list) =>
-					list.cards.some((c) => c.id === card.id)
+					list.cards.some((c) => c.id === card.id),
 				);
 				return originalList && originalList.id !== listId;
 			});
@@ -128,15 +131,7 @@
 	<div class="space-y-8">
 		<BoardOverview data={data.board} />
 
-		<div class="flex justify-start mb-4">
-			<button
-				type="button"
-				class="btn btn-primary"
-				onclick={() => (isAddCardModalOpen = true)}
-			>
-				Add Card
-			</button>
-		</div>
+		<AddCardModal boardId={board.id} users={data.users} tags={data.tags} />
 
 		<section class="flex gap-7 overflow-x-auto pb-8 relative">
 			{#if isUpdating}
@@ -156,12 +151,4 @@
 			{/each}
 		</section>
 	</div>
-
-	<AddCardModal
-		boardId={board.id}
-		users={data.users}
-		tags={data.tags}
-		isOpen={isAddCardModalOpen}
-		onClose={() => (isAddCardModalOpen = false)}
-	/>
 </main>
