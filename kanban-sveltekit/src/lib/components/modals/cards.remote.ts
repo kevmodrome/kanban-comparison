@@ -1,4 +1,9 @@
 import { form, query } from '$app/server';
+import {
+	getBoard as getBoardFromServer,
+	getUsers as getUsersFromServer,
+	getTags as getTagsFromServer,
+} from '$lib/server/boards';
 import { CardSchema, CardUpdateSchema, CommentSchema } from '$lib/validation';
 import { db } from '$lib/db';
 import { cards, cardTags, comments, lists } from '$lib/db/schema';
@@ -11,8 +16,16 @@ const CardSchemaWithBoardId = v.object({
 	boardId: v.string(),
 });
 
-export const getBoards = query(async () => {
-	return await getBoardsFromServer();
+export const getBoard = query(v.string(), async (id) => {
+	return await getBoardFromServer(id);
+});
+
+export const getUsers = query(async () => {
+	return await getUsersFromServer();
+});
+
+export const getTags = query(async () => {
+	return await getTagsFromServer();
 });
 
 export const createCard = form(CardSchemaWithBoardId, async (data, invalid) => {

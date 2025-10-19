@@ -7,25 +7,6 @@ import { eq, max } from 'drizzle-orm';
 import * as v from 'valibot';
 import { CardUpdateSchema, CommentSchema } from '$lib/validation';
 
-export const load: PageServerLoad = async ({ params, depends }) => {
-	depends('app:board');
-	depends(`app:board:${params.id}`);
-
-	const board = await getBoard(params.id);
-
-	if (!board) {
-		throw error(404, 'Board not found');
-	}
-
-	const [users, tags] = await Promise.all([getUsers(), getTags()]);
-
-	return {
-		board,
-		users,
-		tags,
-	};
-};
-
 export const actions = {
 	updateCard: async ({ request }) => {
 		try {

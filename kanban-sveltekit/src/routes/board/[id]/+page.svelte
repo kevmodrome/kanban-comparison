@@ -1,24 +1,20 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import { invalidate } from '$app/navigation';
-	import type { PageData } from './$types';
-	import type { BoardCard, BoardDetails } from '$lib/server/boards';
+	import type { BoardCard } from '$lib/server/boards';
 	import BoardOverview from '$lib/components/BoardOverview.svelte';
 	import CardList from '$lib/components/CardList.svelte';
 	import AddCardModal from '$lib/components/modals/AddCardModal.svelte';
 	import type { DndEvent } from 'svelte-dnd-action';
 	import { debounce } from '$lib/utils';
+	import { getBoard, getUsers, getTags } from '$lib/components/modals/cards.remote';
 
-	let { data }: { data: PageData } = $props();
+	let { data } = $props();
+	let board = $derived(await getBoard(page.params.id!));
+	let users = $derived(await getUsers());
+	let tags = $derived(await getTags());
 
-	// Local mutable copy for optimistic updates
-	let board = $state<BoardDetails>(data.board);
 	let isUpdating = $state(false);
-
-	// Sync local state with server data
-	$effect(() => {
-		board = data.board;
-	});
 
 	// Helper function to submit form actions
 	async function submitAction(action: string, formData: FormData): Promise<Response> {
